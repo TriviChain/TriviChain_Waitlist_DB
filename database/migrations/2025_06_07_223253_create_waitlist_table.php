@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('waitlist', function (Blueprint $table) {
+        Schema::create('waitlists', function (Blueprint $table) {
             $table->id();
             $table->string('email')->unique(); 
             $table->string('name')->nullable();
