@@ -1,9 +1,9 @@
 <?php
 
 return [
-    'paths' => ['api/*', 'sanctum/csrf-cookie'],
+    'paths' => ['api/*', 'sanctum/csrf-cookie'], // Allow API routes
     'allowed_methods' => ['*'],
-    'allowed_origins' => ['http://localhost:3000'], // Your Next.js URL
+    'allowed_origins' => ['http://localhost:3000'], // Your Next.js URL in production: ['https://your-next.js-app.com']
     'allowed_origins_patterns' => [],
     'allowed_headers' => ['*'],
     'exposed_headers' => [],

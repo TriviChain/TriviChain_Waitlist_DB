@@ -9,7 +9,7 @@ use Illuminate\Validation\ValidationException;
 class WaitlistController extends Controller
 {
     /**
-     * Join the waitlist
+     * Join the waitList
      */
     public function join(Request $request)
     {
@@ -46,7 +46,7 @@ class WaitlistController extends Controller
     }
 
     /**
-     * Get waitlist statistics
+     * Get waitList statistics
      */
     public function stats()
     {
@@ -61,7 +61,7 @@ class WaitlistController extends Controller
     }
 
     /**
-     * Get all waitlist entries (admin only)
+     * Get all waitList entries (admin only)
      */
     public function index()
     {
