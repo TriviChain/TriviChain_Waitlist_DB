@@ -61,7 +61,7 @@ class WaitlistController extends Controller
     }
 
     /**
-     * Get all waitList entries (admin only)
+     * Get all waitList entries (Admin only)
      */
     public function index()
     {
