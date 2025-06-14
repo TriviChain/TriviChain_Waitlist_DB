@@ -17,8 +17,12 @@ class AdminDashboardController extends Controller
 
     public function __construct(EmailService $emailService)
     {
-        $this->middleware('admin.auth');
         $this->emailService = $emailService;
+    }
+
+    public function index()
+    {
+        return view('admin.dashboard');
     }
 
     /**
