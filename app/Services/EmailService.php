@@ -9,6 +9,8 @@ use App\Mail\WaitlistUpdate;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
+use App\Jobs\ProcessWelcomeEmail;
+use App\Jobs\ProcessWaitlistUpdate;
 
 class EmailService
 {
@@ -17,20 +19,17 @@ class EmailService
      */
     public function sendWelcomeEmail(Waitlist $waitlistMember): bool
     {
-        try {
-            Mail::to($waitlistMember->email)
-                ->queue(new WelcomeToWaitlist($waitlistMember));
+       try {
+            ProcessWelcomeEmail::dispatch($waitlistMember);
 
-            $waitlistMember->markWelcomeEmailSent();
-
-            Log::info('Welcome email queued', [
+            Log::info('Welcome email job dispatched', [
                 'email' => $waitlistMember->email,
                 'waitlist_id' => $waitlistMember->id
             ]);
 
             return true;
         } catch (\Exception $e) {
-            Log::error('Failed to send welcome email', [
+            Log::error('Failed to dispatch welcome email job', [
                 'email' => $waitlistMember->email,
                 'error' => $e->getMessage()
             ]);
@@ -58,19 +57,16 @@ class EmailService
 
         // Queue emails for bulk sending
         foreach ($waitlistMembers as $member) {
-            $this->queueUpdateEmail($member, $emailUpdate);
+            ProcessWaitlistUpdate::dispatch($member, $emailUpdate);
         }
 
-        return $emailUpdate;
-    }
+        Log::info('Waitlist update jobs dispatched', [
+            'update_id' => $emailUpdate->id,
+            'recipients' => $waitlistMembers->count(),
+            'subject' => $subject
+        ]);
 
-    /**
-     * Queue individual update email
-     */
-    private function queueUpdateEmail(Waitlist $member, EmailUpdate $emailUpdate): void
-    {
-        Mail::to($member->email)
-            ->queue(new WaitlistUpdate($member, $emailUpdate));
+        return $emailUpdate;
     }
 
     /**
@@ -98,27 +94,17 @@ class EmailService
     }
 
     /**
-     * Process email update completion
-     */
-    public function markEmailUpdateCompleted(EmailUpdate $emailUpdate): void
-    {
-        $emailUpdate->update(['status' => 'completed']);
-        
-        Log::info('Email update completed', [
-            'update_id' => $emailUpdate->id,
-            'recipients' => $emailUpdate->recipients_count,
-            'sent' => $emailUpdate->sent_count,
-            'failed' => $emailUpdate->failed_count
-        ]);
-    }
-
-    /**
      * Handle email send success
      */
     public function handleEmailSent(EmailUpdate $emailUpdate, Waitlist $member): void
     {
         $emailUpdate->increment('sent_count');
         $member->incrementUpdatesReceived();
+
+        // Check if all emails are sent
+        if ($emailUpdate->sent_count + $emailUpdate->failed_count >= $emailUpdate->recipients_count) {
+            $emailUpdate->update(['status' => 'completed']);
+        }
     }
 
     /**
@@ -128,6 +114,11 @@ class EmailService
     {
         $emailUpdate->increment('failed_count');
         
+        // Check if all emails are processed
+        if ($emailUpdate->sent_count + $emailUpdate->failed_count >= $emailUpdate->recipients_count) {
+            $emailUpdate->update(['status' => 'completed']);
+        }
+
         Log::error('Email send failed', [
             'update_id' => $emailUpdate->id,
             'email' => $email,
