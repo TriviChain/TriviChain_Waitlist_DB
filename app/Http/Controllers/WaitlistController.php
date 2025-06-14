@@ -3,11 +3,19 @@
 namespace App\Http\Controllers;
 
 use App\Models\Waitlist;
+use App\Services\EmailService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
 class WaitlistController extends Controller
 {
+    protected $emailService;
+
+    public function __construct(EmailService $emailService)
+    {
+        $this->emailService = $emailService;
+    }
+    
     /**
      * Join the waitList
      */
@@ -25,10 +33,18 @@ class WaitlistController extends Controller
                 'joined_at' => now()
             ]);
 
+            // Send welcome email
+            $this->emailService->sendWelcomeEmail($waitlist);
+
             return response()->json([
                 'success' => true,
                 'message' => 'Successfully joined the waitlist!',
-                'data' => $waitlist
+                'data' => [
+                    'id' => $waitlist->id,
+                    'email' => $waitlist->email,
+                    'name' => $waitlist->name,
+                    'joined_at' => $waitlist->joined_at,
+                ]
             ], 201);
 
         } catch (ValidationException $e) {
@@ -40,36 +56,64 @@ class WaitlistController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'An error occurred while joining the waitlist'
+                'message' => 'An error occurred while joining the waitlist',
+                'error' => config('app.debug') ? $e->getMessage() : null
+            ], 500);
+        }
+    }
+
+   /**
+     * Get waitlist statistics
+     */
+    public function stats()
+    {
+        try {
+            $count = Waitlist::count();
+            $todayCount = Waitlist::whereDate('created_at', today())->count();
+            $weekCount = Waitlist::whereBetween('created_at', [
+                now()->startOfWeek(),
+                now()->endOfWeek()
+            ])->count();
+            
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'total_subscribers' => $count,
+                    'joined_today' => $todayCount,
+                    'joined_this_week' => $weekCount,
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch statistics',
+                'error' => config('app.debug') ? $e->getMessage() : null
             ], 500);
         }
     }
 
     /**
-     * Get waitList statistics
-     */
-    public function stats()
-    {
-        $count = Waitlist::count();
-        
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'total_subscribers' => $count
-            ]
-        ]);
-    }
-
-    /**
-     * Get all waitList entries (Admin only)
+     * Get all waitlist entries (public - limited info)
      */
     public function index()
     {
-        $waitlist = Waitlist::orderBy('joined_at', 'desc')->get();
-        
-        return response()->json([
-            'success' => true,
-            'data' => $waitlist
-        ]);
+        try {
+            $waitlist = Waitlist::select(['id', 'created_at'])
+                ->orderBy('joined_at', 'desc')
+                ->take(10)
+                ->get();
+            
+            return response()->json([
+                'success' => true,
+                'data' => $waitlist,
+                'message' => 'Recent waitlist entries (limited data for privacy)'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch waitlist entries',
+                'error' => config('app.debug') ? $e->getMessage() : null
+            ], 500);
+        }
     }
 }
