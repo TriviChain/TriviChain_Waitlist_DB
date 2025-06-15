@@ -156,7 +156,16 @@ class AdminDashboardController extends Controller
                 'message' => 'required|string|max:5000',
             ]);
 
-            $admin = Auth::user();
+            // Use Sanctum guard to get authenticated admin user
+            $admin = Auth::guard('sanctum')->user();
+
+            // Additional check to ensure admin is authenticated
+            if (!$admin) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Admin authentication required'
+                ], 401);
+            }
             
             // Check if there are waitlist members
             $waitlistCount = Waitlist::count();
