@@ -14,7 +14,7 @@ class AdminUserSeeder extends Seeder
      */
     public function run(): void
     {
-        AdminUser::create([
+        AdminUser::firstOrCreate([
             'name' => 'Super Admin',
             'email' => 'admin@trivichain.com',
             'password' => Hash::make('password123'), // Change this in production!
@@ -22,7 +22,7 @@ class AdminUserSeeder extends Seeder
             'is_active' => true,
         ]);
 
-        AdminUser::create([
+        AdminUser::firstOrCreate([
             'name' => 'Admin User',
             'email' => 'admin2@trivichain.com',
             'password' => Hash::make('password123'), // Change this in production!

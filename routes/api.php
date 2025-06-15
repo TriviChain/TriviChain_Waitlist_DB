@@ -6,13 +6,15 @@ use App\Http\Controllers\WaitlistController;
 use App\Http\Controllers\AdminAuthController;
 use App\Http\Controllers\AdminDashboardController;
 
-// Test route
-Route::get('/test', function () {
-    return response()->json(['message' => 'API is working!']);
+// Health check route
+Route::get('/health', function () {
+    return response()->json([
+        'status' => 'ok',
+        'timestamp' => now(),
+        'service' => 'waitlist-api',
+        'version' => '1.0.0'
+    ]);
 });
-
-    
-
 
 // Public waitlist routes
 Route::prefix('waitlist')->group(function () {
