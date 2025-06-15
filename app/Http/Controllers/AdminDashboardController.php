@@ -146,6 +146,47 @@ class AdminDashboardController extends Controller
     }
 
     /**
+     * Delete a waitlist member
+     */
+    public function deleteWaitlistMember($id)
+    {
+        try {
+            // Find the waitlist member
+            $member = Waitlist::findOrFail($id);
+            
+            // Store member info for response
+            $memberInfo = [
+                'id' => $member->id,
+                'email' => $member->email,
+                'name' => $member->name,
+            ];
+            
+            // Delete the member
+            $member->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Waitlist member deleted successfully',
+                'data' => [
+                    'deleted_member' => $memberInfo
+                ]
+            ]);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Waitlist member not found'
+            ], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delete waitlist member',
+                'error' => config('app.debug') ? $e->getMessage() : null
+            ], 500);
+        }
+    }
+
+    /**
      * Send update to all waitlist members
      */
     public function sendWaitlistUpdate(Request $request)

@@ -11,18 +11,7 @@ Route::get('/test', function () {
     return response()->json(['message' => 'API is working!']);
 });
 
-// Health check
-// Route::get('/health', function () {
-//     return response()->json([
-//         'status' => 'ok',
-//         'timestamp' => now(),
-//         'service' => 'waitlist-api'
-//     ]);
-// });
-
-// Route::get('/user', function (Request $request) {
-//     return $request->user();
-// })->middleware('auth:sanctum');
+    
 
 
 // Public waitlist routes

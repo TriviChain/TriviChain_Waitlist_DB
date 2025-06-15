@@ -72,7 +72,11 @@ class AdminAuthController extends Controller
     public function logout(Request $request)
     {
         try {
-            $request->user()->currentAccessToken()->delete();
+            $admin = Auth::guard('sanctum')->user();
+            
+            if ($admin) {
+                $admin->currentAccessToken()->delete();
+            }
 
             return response()->json([
                 'success' => true,
@@ -92,7 +96,17 @@ class AdminAuthController extends Controller
     public function me(Request $request)
     {
         try {
-            $admin = $request->user();
+            // $admin = $request->user();
+
+            $admin = Auth::guard('sanctum')->user();
+            
+            // Check if admin is authenticated
+            if (!$admin) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Admin not authenticated'
+                ], 401);
+            }
 
             return response()->json([
                 'success' => true,
