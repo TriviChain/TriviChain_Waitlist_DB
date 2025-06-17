@@ -1,20 +1,18 @@
 [phases.setup]
-nixPkgs = ["...","php82", "php82Packages.composer", "nodejs_18", "npm"]
+nixPkgs = ["php82", "php82Packages.composer"]
 
 [phases.install]
 cmds = [
     "composer install --no-dev --optimize-autoloader --no-interaction",
     "php artisan key:generate --no-interaction --force",
+]
+
+[phases.build]
+cmds = [
     "php artisan config:cache",
     "php artisan route:cache", 
     "php artisan view:cache"
 ]
-
-[phases.build]
-cmds = ["echo 'Build phase complete'"]
-
-[phases.deploy]
-cmds = ["php artisan migrate --force"]
 
 [start]
 cmd = "php artisan serve --host=0.0.0.0 --port=$PORT"
