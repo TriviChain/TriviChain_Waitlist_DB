@@ -4,8 +4,10 @@ builder = "nixpacks"
 [deploy]
 startCommand = "php artisan serve --host=0.0.0.0 --port=$PORT"
 
-[[deploy.healthcheckPath]]
-path = "/"
+healthcheckPath = "/"
+healthcheckTimeout = 100
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 10
 
 [environments.production]
 variables = { }
