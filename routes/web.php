@@ -7,5 +7,18 @@ Route::get('/', function () {
 });
 
 Route::get('/health', function () {
-    return response()->json(['status' => 'ok'], 200);
+    try {
+        // Simple health check that doesn't require database
+        return response()->json([
+            'status' => 'ok',
+            'timestamp' => now()->toISOString(),
+            'app_key_set' => !empty(config('app.key')),
+            'environment' => app()->environment(),
+        ], 200);
+    } catch (\Exception $e) {
+        return response()->json([
+            'status' => 'error',
+            'message' => $e->getMessage(),
+        ], 500);
+    }
 });
