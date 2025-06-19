@@ -8,13 +8,8 @@ nixPkgs = [
 [phases.install]
 cmds = [
     "composer install --no-dev --optimize-autoloader --no-interaction",
-    "mkdir -p storage/logs storage/framework/cache storage/framework/sessions storage/framework/views bootstrap/cache",
+    "mkdir -p storage/logs storage/framework/cache storage/framework/sessions storage/framework/views",
     "chmod -R 775 storage bootstrap/cache"
-]
-
-[phases.build]
-cmds = [
-    "php artisan migrate --force || echo 'Migration failed, continuing...'"
 ]
 
 [start]
