@@ -10,7 +10,7 @@ Route::get('/health', function () {
     try {
         // Simple health check that doesn't require database
         return response()->json([
-            'status' => 'ok',
+            'status' => 'okay',
             'timestamp' => now()->toISOString(),
             'app_key_set' => !empty(config('app.key')),
             'environment' => app()->environment(),
