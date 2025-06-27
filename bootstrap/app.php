@@ -15,13 +15,23 @@ return Application::configure(basePath: dirname(__DIR__))
         // Register custom middleware aliases
         $middleware->alias([
             'admin.auth' => \App\Http\Middleware\AdminAuth::class,
+            'sanctum.stateful' => \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
+            'custom.cors' => \App\Http\Middleware\CustomCors::class,
         ]);
 
-        // You can also add other middleware configurations here
+        // Configure API middleware
+        $middleware->api(remove: [
+            \Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class,
+        ]);
+
+        // Add CORS middleware
         $middleware->api(prepend: [
-            \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
+            \App\Http\Middleware\CustomCors::class,
+            \Illuminate\Http\Middleware\HandleCors::class,
         ]);
     })
+
+
     ->withExceptions(function (Exceptions $exceptions) {
         //
     })->create();
