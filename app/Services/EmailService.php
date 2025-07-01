@@ -8,8 +8,7 @@ use App\Mail\WelcomeToWaitlist;
 use App\Mail\WaitlistUpdate;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Queue;
-use App\Jobs\ProcessWelcomeEmail;
+// use App\Jobs\ProcessWelcomeEmail;
 use App\Jobs\ProcessWaitlistUpdate;
 
 class EmailService
@@ -20,22 +19,58 @@ class EmailService
     public function sendWelcomeEmail(Waitlist $waitlistMember): bool
     {
        try {
-            ProcessWelcomeEmail::dispatch($waitlistMember);
+            // ProcessWelcomeEmail::dispatch($waitlistMember)
 
-            Log::info('Welcome email job dispatched', [
+            Log::info('EmailService: Starting welcome email process', [
                 'email' => $waitlistMember->email,
-                'waitlist_id' => $waitlistMember->id
+                'name' => $waitlistMember->name,
+                'id' => $waitlistMember->id
+            ]);
+
+            // Validate email configuration
+            $this->validateEmailConfig();
+
+            // Send email immediately (not queued)
+            Mail::to($waitlistMember->email)->send(new WelcomeToWaitlist($waitlistMember));
+
+            Log::info('EmailService: Welcome email sent successfully', [
+                'email' => $waitlistMember->email,
+                'id' => $waitlistMember->id
             ]);
 
             return true;
         } catch (\Exception $e) {
-            Log::error('Failed to dispatch welcome email job', [
+            Log::error('Failed to send welcome email', [
                 'email' => $waitlistMember->email,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
             ]);
 
-            return false;
+            throw new \Exception('Failed to send welcome email: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Validate email configuration
+     */
+    private function validateEmailConfig()
+    {
+        $configs = [
+            'MAIL_HOST' => config('mail.mailers.smtp.host'),
+            'MAIL_USERNAME' => config('mail.mailers.smtp.username'),
+            'MAIL_PASSWORD' => config('mail.mailers.smtp.password'),
+            'MAIL_FROM_ADDRESS' => config('mail.from.address'),
+        ];
+
+        foreach ($configs as $key => $value) {
+            if (empty($value)) {
+                throw new \Exception("Email configuration missing: {$key}");
+            }
+        }
+
+        Log::info('EmailService: Email configuration validated successfully');
     }
 
     /**

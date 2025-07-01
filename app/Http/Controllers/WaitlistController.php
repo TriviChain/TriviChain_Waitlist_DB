@@ -7,6 +7,7 @@ use App\Services\EmailService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 
 class WaitlistController extends Controller
@@ -23,11 +24,21 @@ class WaitlistController extends Controller
      */
     public function join(Request $request): JsonResponse
     {
+        Log::info('=== WAITLIST JOIN REQUEST STARTED ===', [
+            'request_data' => $request->all(),
+            'method' => $request->method(),
+            'url' => $request->fullUrl(),
+            'user_agent' => $request->userAgent(),
+            'ip' => $request->ip()
+        ]);
+
         try {
             $validated = $request->validate([
                 'email' => 'required|email|unique:waitlists,email',
                 'name' => 'nullable|string|max:255'
             ]);
+
+            Log::info('✅ VALIDATION PASSED', ['validated_data' => $validated]);
 
             $waitlist = Waitlist::create([
                 'email' => $validated['email'],
@@ -35,15 +46,48 @@ class WaitlistController extends Controller
                 'joined_at' => now()
             ]);
 
-            // Send welcome email
+            Log::info('✅ WAITLIST ENTRY CREATED', [
+                'waitlist_id' => $waitlist->id,
+                'email' => $waitlist->email,
+                'name' => $waitlist->name
+            ]);
+
+            // Check email configuration before sending
+            $this->debugEmailConfiguration();
+
+            // Send welcome email with detailed error handling
+            $emailSent = false;
+            $emailError = null;
+
             try {
-                $this->emailService->sendWelcomeEmail($waitlist);
-            } catch (\Exception $emailError) {
-                // Log email error but don't fail the request
-                Log::warning('Failed to send welcome email: ' . $emailError->getMessage());
+                Log::info('📧 STARTING EMAIL SEND PROCESS');
+            
+                // Test if we can send a simple email first
+                $this->testBasicEmailSending($waitlist->email);
+            
+                // Now send the actual welcome email
+                $emailSent = $this->emailService->sendWelcomeEmail($waitlist);
+            
+                Log::info('✅ EMAIL SENT SUCCESSFULLY', [
+                    'email' => $waitlist->email,
+                    'email_sent' => $emailSent
+                ]);
+            
+            } catch (\Exception $emailException) {
+                $emailError = $emailException->getMessage();
+                Log::error('❌ EMAIL SENDING FAILED', [
+                    'error' => $emailError,
+                    'waitlist_id' => $waitlist->id,
+                    'email' => $waitlist->email,
+                    'exception_class' => get_class($emailException),
+                    'file' => $emailException->getFile(),
+                    'line' => $emailException->getLine(),
+                    'trace' => $emailException->getTraceAsString()
+                ]);
             }
 
-            $response = response()->json([
+            // Prepare response with email status
+            $responseData = [
                 'success' => true,
                 'message' => 'Successfully joined the waitlist!',
                 'data' => [
@@ -51,13 +95,32 @@ class WaitlistController extends Controller
                     'email' => $waitlist->email,
                     'name' => $waitlist->name,
                     'joined_at' => $waitlist->joined_at,
-                ]
-            ], 201);
+                ],
+                'email_sent' => $emailSent,
+                'email_status' => $emailSent ? 'sent' : 'failed'
+            ];
 
+            // Always include email error for debugging
+            if (!$emailSent) {
+                $responseData['email_error'] = $emailError;
+                $responseData['debug_info'] = 'Check Laravel logs for detailed error information';
+            }
+
+            Log::info('=== WAITLIST JOIN REQUEST COMPLETED ===', [
+                'success' => true,
+                'email_sent' => $emailSent,
+                'email_error' => $emailError
+            ]);
+
+            $response = response()->json($responseData, 201);
             return $this->addCorsHeaders($request, $response);
 
-
         } catch (ValidationException $e) {
+            Log::warning('❌ VALIDATION FAILED', [
+                'errors' => $e->errors(),
+                'request_data' => $request->all()
+            ]);
+
             $response = response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -66,18 +129,65 @@ class WaitlistController extends Controller
 
             return $this->addCorsHeaders($request, $response);
         } catch (\Exception $e) {
-            Log::error('Waitlist join error: ' . $e->getMessage(), [
+            Log::error('❌ UNEXPECTED ERROR', [
+                'error' => $e->getMessage(),
                 'request_data' => $request->all(),
+                'exception_class' => get_class($e),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
                 'trace' => $e->getTraceAsString()
             ]);
 
             $response = response()->json([
                 'success' => false,
                 'message' => 'An error occurred while joining the waitlist',
-                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
+                'error' => $e->getMessage(),
+                'debug_info' => 'Check Laravel logs for detailed error information'
             ], 500);
 
             return $this->addCorsHeaders($request, $response);
+        }
+    }
+
+    /**
+     * Debug email configuration
+     */
+    private function debugEmailConfiguration()
+    {
+        Log::info('🔍 EMAIL CONFIGURATION DEBUG', [
+            'mail_mailer' => config('mail.default'),
+            'smtp_host' => config('mail.mailers.smtp.host'),
+            'smtp_port' => config('mail.mailers.smtp.port'),
+            'smtp_username' => config('mail.mailers.smtp.username') ? 'SET' : 'NOT SET',
+            'smtp_password' => config('mail.mailers.smtp.password') ? 'SET (length: ' . strlen(config('mail.mailers.smtp.password')) . ')' : 'NOT SET',
+            'smtp_encryption' => config('mail.mailers.smtp.encryption'),
+            'from_address' => config('mail.from.address'),
+            'from_name' => config('mail.from.name'),
+        ]);
+    }
+
+    /**
+     * Test basic email sending
+     */
+    private function testBasicEmailSending($toEmail)
+    {
+        try {
+            Log::info('🧪 TESTING BASIC EMAIL SENDING', ['to' => $toEmail]);
+        
+            Mail::raw('This is a test email to verify SMTP configuration is working.', function ($message) use ($toEmail) {
+                $message->to($toEmail)
+                        ->subject('Trivichain - Email Test')
+                        ->from(config('mail.from.address'), config('mail.from.name'));
+            });
+        
+            Log::info('✅ BASIC EMAIL TEST PASSED');
+        
+        } catch (\Exception $e) {
+            Log::error('❌ BASIC EMAIL TEST FAILED', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            throw new \Exception('Basic email test failed: ' . $e->getMessage());
         }
     }
 
@@ -110,7 +220,7 @@ class WaitlistController extends Controller
 
             return $this->addCorsHeaders($request, $response);
         } catch (\Exception $e) {
-            Log::error('Waitlist stats error: ' . $e->getMessage());
+            Log::error('WaitlistController: Stats error', ['error' => $e->getMessage()]);
 
             $response = response()->json([
                 'success' => false,
@@ -143,7 +253,7 @@ class WaitlistController extends Controller
 
             return $this->addCorsHeaders($request, $response);
         } catch (\Exception $e) {
-            Log::error('Waitlist index error: ' . $e->getMessage());
+            Log::error('WaitlistController: Index error', ['error' => $e->getMessage()]);
 
             $response = response()->json([
                 'success' => false,
