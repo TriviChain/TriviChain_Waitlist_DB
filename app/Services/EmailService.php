@@ -5,7 +5,7 @@ namespace App\Services;
 use App\Models\Waitlist;
 use App\Models\EmailUpdate;
 use App\Mail\WelcomeToWaitlist;
-use App\Mail\WaitlistUpdate;
+// use App\Mail\WaitlistUpdate;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
 // use App\Jobs\ProcessWelcomeEmail;
@@ -19,7 +19,6 @@ class EmailService
     public function sendWelcomeEmail(Waitlist $waitlistMember): bool
     {
        try {
-            // ProcessWelcomeEmail::dispatch($waitlistMember)
 
             Log::info('EmailService: Starting welcome email process', [
                 'email' => $waitlistMember->email,
@@ -30,17 +29,23 @@ class EmailService
             // Validate email configuration
             $this->validateEmailConfig();
 
-            // Send email immediately (not queued)
-            Mail::to($waitlistMember->email)->send(new WelcomeToWaitlist($waitlistMember));
+            // Create the mailable
+            $mailable = new WelcomeToWaitlist($waitlistMember);
+            
+            Log::info('📧 EmailService: Mailable created, sending email...');
 
-            Log::info('EmailService: Welcome email sent successfully', [
+            // Send email immediately (not queued)
+            Mail::to($waitlistMember->email)->send($mailable);
+
+            Log::info('✅ EmailService: Welcome email sent successfully', [
                 'email' => $waitlistMember->email,
                 'id' => $waitlistMember->id
             ]);
 
             return true;
+
         } catch (\Exception $e) {
-            Log::error('Failed to send welcome email', [
+            Log::error('❌ EmailService: Failed to send welcome email', [
                 'email' => $waitlistMember->email,
                 'error' => $e->getMessage(),
                 'file' => $e->getFile(),
@@ -64,13 +69,79 @@ class EmailService
             'MAIL_FROM_ADDRESS' => config('mail.from.address'),
         ];
 
+        $missingConfigs = [];
         foreach ($configs as $key => $value) {
             if (empty($value)) {
-                throw new \Exception("Email configuration missing: {$key}");
+                $missingConfigs[] = $key;
             }
         }
 
-        Log::info('EmailService: Email configuration validated successfully');
+        if (!empty($missingConfigs)) {
+            $errorMessage = "Email configuration missing: " . implode(', ', $missingConfigs);
+            Log::error('❌ EmailService: ' . $errorMessage);
+            throw new \Exception($errorMessage);
+        }
+
+        Log::info('✅ EmailService: Email configuration validated successfully');
+    }
+
+    /**
+     * Test email configuration
+     */
+    public function testEmailConfiguration()
+    {
+        try {
+            Log::info('🧪 EmailService: Testing email configuration');
+            
+            $testEmail = config('mail.from.address');
+            
+            Mail::raw('This is a test email from Trivichain Waitlist API. If you receive this, your email configuration is working correctly!', function ($message) use ($testEmail) {
+                $message->to($testEmail)
+                        ->subject('Trivichain Email Test - ' . now()->format('Y-m-d H:i:s'))
+                        ->from(config('mail.from.address'), config('mail.from.name'));
+            });
+
+            Log::info('✅ EmailService: Test email sent successfully');
+            return true;
+
+        } catch (\Exception $e) {
+            Log::error('❌ EmailService: Test email failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            throw new \Exception('Email test failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Send a simple test email
+     */
+    public function sendSimpleTestEmail($toEmail = null)
+    {
+        try {
+            $email = $toEmail ?: config('mail.from.address');
+            
+            Log::info('🧪 EmailService: Sending simple test email to: ' . $email);
+
+            Mail::raw('Hello! This is a simple test email from Trivichain. Your email configuration is working!', function ($message) use ($email) {
+                $message->to($email)
+                        ->subject('Simple Test Email from Trivichain')
+                        ->from(config('mail.from.address'), config('mail.from.name'));
+            });
+
+            Log::info('✅ EmailService: Simple test email sent successfully');
+            return true;
+
+        } catch (\Exception $e) {
+            Log::error('❌ EmailService: Simple test email failed', [
+                'error' => $e->getMessage(),
+                'to_email' => $email,
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            throw $e;
+        }
     }
 
     /**
