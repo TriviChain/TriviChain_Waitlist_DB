@@ -6,6 +6,7 @@ use App\Models\Waitlist;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
 
 class WelcomeToWaitlist extends Mailable
 {
@@ -19,6 +20,12 @@ class WelcomeToWaitlist extends Mailable
     public function __construct(Waitlist $waitlistMember)
     {
         $this->waitlistMember = $waitlistMember;
+
+        Log::info('WelcomeToWaitlist: Mailable instance created', [
+            'email' => $waitlistMember->email,
+            'name' => $waitlistMember->name,
+            'id' => $waitlistMember->id
+        ]);
     }
 
     /**
@@ -26,10 +33,18 @@ class WelcomeToWaitlist extends Mailable
      */
     public function build(): self
     {
-        return $this->subject('Welcome to the Waitlist!')
-                    ->view('emails.welcome-to-waitlist') // ensure this view exists
+        Log::info('WelcomeToWaitlist: Building email message');
+
+        return $this->subject('Welcome to Trivichain Waitlist! 🎉!')
+                    ->view('emails.welcome-waitlist') // ensure this view exists
+                    ->text('emails.welcome-waitlist-text') // Add text version
                     ->with([
                         'member' => $this->waitlistMember,
+                        // Add variables that our template expects
+                        'name' => $this->waitlistMember->name ?: 'there',
+                        'email' => $this->waitlistMember->email,
+                        'joinedAt' => $this->waitlistMember->joined_at,
+                        'waitlistId' => $this->waitlistMember->id,
                     ]);
     }
 }
